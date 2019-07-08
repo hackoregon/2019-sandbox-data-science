@@ -1,5 +1,8 @@
 docs/site/
 
+# several large data files
+data/processed/*.geojson
+
 # OSX Junk
 .DS_Store
 

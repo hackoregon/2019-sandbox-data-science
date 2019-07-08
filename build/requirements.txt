@@ -24,6 +24,7 @@ defusedxml==0.5.0
 docutils==0.14
 entrypoints==0.3
 future==0.17.1
+geopandas
 idna==2.8
 imagesize==1.1.0
 ipykernel==5.1.0
