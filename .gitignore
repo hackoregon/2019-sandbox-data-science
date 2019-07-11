@@ -1,5 +1,8 @@
 docs/site/
 
+# config file containing aws access and secret keys
+src/data/config.csv
+
 # several large data files
 data/processed/*.geojson
 

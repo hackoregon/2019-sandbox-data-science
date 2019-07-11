@@ -14,6 +14,7 @@
 import logging, fiona
 import geopandas as gpd
 import make_dataset
+import pathlib
 
 
 def make_049():
@@ -47,11 +48,23 @@ if __name__ == '__main__':
 
     url049 = 'https://opendata.arcgis.com/datasets/c0d05bcc4524492899e61923d98f604f_116.geojson'
     ID_given = '049'
-    print("using {} to make dataset {}".format(url049, ID_given))
-    test = make_dataset.SandboxCleaner(input_url=url049, ID=ID_given)
+    logging.basicConfig(level=logging.INFO)
 
-    print('making processed data set from raw data for ID: 049')
-    test.import_data()
+    file_exists = pathlib.Path('../../data/processed/dataset049.geojson')
+    if file_exists.exists():
+        cleaner = make_dataset.SandboxCleaner(input_url=url049, ID=ID_given)
+        print('writing GeoJSON from local path to S3 bucket...')
+        cleaner.write_to_S3()
 
-    print('writing GeoJSON to ../../data/processed/dataset049.geojson')
-    test.write_file()
+    else:
+        print("using {} to make dataset {}".format(url049, ID_given))
+        cleaner = make_dataset.SandboxCleaner(input_url=url049, ID=ID_given)
+
+        print('making processed data set from raw data for ID: 049')
+        cleaner.import_data()
+
+        print('writing GeoJSON to ../../data/processed/dataset049.geojson')
+        cleaner.write_file()
+
+        print('writing GeoJSON to S3 bucket...')
+        cleaner.write_to_S3()

@@ -6,20 +6,33 @@
 
 import click
 import logging
-import geopandas as gpd
+import geopandas as gpd, pandas as pd
+import boto3
 # from pathlib import Path
 # from dotenv import find_dotenv, load_dotenv
 
+from inventory import create_filepath
 
-@click.command()
-@click.argument('input_filepath', type=click.Path(exists=True))
-@click.argument('output_filepath', type=click.Path())
-def main(input_filepath, output_filepath):
-    """ Runs data processing scripts to turn raw data from (../raw) into
-        cleaned data ready to be analyzed (saved in ../processed).
-    """
-    logger = logging.getLogger(__name__)
-    logger.info('making final data set from raw data')
+bucket = 'hacko-data-archive'
+prefix = '2019-sandbox'
+file = 'inventory.csv'
+object ='{}/{}'.format(prefix, file)
+data = 's3://{}/{}'.format(bucket, object)
+
+inventory = pd.read_csv(data, dtype={'ID': str})
+CONFIG = pd.read_csv('config.csv')
+ACCESS_KEY = CONFIG['access'].item()
+SECRET_KEY = CONFIG['secret'].item()
+
+# @click.command()
+# @click.argument('input_filepath', type=click.Path(exists=True))
+# @click.argument('output_filepath', type=click.Path())
+# def main(input_filepath, output_filepath):
+#     """ Runs data processing scripts to turn raw data from (../raw) into
+#         cleaned data ready to be analyzed (saved in ../processed).
+#     """
+#     logger = logging.getLogger(__name__)
+#     logger.info('making final data set from raw data')
 
 
 class SandboxCleaner():
@@ -35,8 +48,8 @@ class SandboxCleaner():
         import_data: Reads files into a geopandas GeoDataFrame from url.
         write_file: Writes a GeoDataFrame to a GeoJSON file using the fiona driver.
                     Puts the file in ../../data/processed/
-        write_to_S3: Not yet finished. Will write a geopandas GeoDataFrame to GeoJSON
-                     and put into the 2019-sandbox S3 bucket for processed data.
+        write_to_S3: Writes a geopandas GeoDataFrame to the 2019-sandbox S3 bucket
+                     for processed data, in GeoJSON format.
 
     #TODO: write a method for checking the coordinate system as EPSG 4326, and
            converting if needed.
@@ -46,6 +59,8 @@ class SandboxCleaner():
         self.data = gpd.GeoDataFrame()
         self.url = input_url
         self.ID = ID
+        self.inventory = inventory
+        self.local_path = None
 
     def import_data(self):
         self.data = gpd.read_file(self.url)
@@ -53,12 +68,22 @@ class SandboxCleaner():
 
     def write_file(self):
         prefix = '../../data/processed/'
-        path ='{}/dataset{}.geojson'.format(prefix, self.ID)
-        self.data.to_file(path, driver='GeoJSON')
+        self.local_path ='{}/dataset{}.geojson'.format(prefix, self.ID)
+        self.data.to_file(self.local_path, driver='GeoJSON')
 
     def write_to_S3(self):
-        pass
-
+        """
+        Note: at the moment, the GeoJSON needs to be written locally using write_file() method.
+        TODO: build in functionality to skip this step and write the file to GeoJSON directly.
+        """
+        s3 = boto3.client('s3',
+                          aws_access_key_id=ACCESS_KEY,
+                          aws_secret_access_key=SECRET_KEY)
+        if self.local_path is None:
+            prefix = '../../data/processed/'
+            self.local_path ='{}/dataset{}.geojson'.format(prefix, self.ID)
+        path = create_filepath(inventory_df = inventory, write_to_S3=True, ID=self.ID)
+        s3.upload_file(self.local_path, 'hacko-data-archive', path)
 
 
 if __name__ == '__main__':
@@ -73,3 +98,7 @@ if __name__ == '__main__':
     # load_dotenv(find_dotenv())
 
     # main()
+
+
+    test = SandboxCleaner(input_url='test', ID='050')
+    test.write_to_S3()
